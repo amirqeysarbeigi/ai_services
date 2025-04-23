@@ -17,7 +17,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/face-detection" element={<FaceDetection />} />
-              <Route path="/voice-clone" element={<TextToSpeech />} />
+              <Route path="/text-to-speech" element={<TextToSpeech />} />
             </Routes>
           </Box>
         </Box>

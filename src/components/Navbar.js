@@ -59,7 +59,7 @@ function Navbar() {
           <Button
             color="inherit"
             component={RouterLink}
-            to="/voice-clone"
+            to="/text-to-speech"
             sx={{
               '&:hover': {
                 backgroundColor: 'rgba(255, 255, 255, 0.1)',

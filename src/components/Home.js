@@ -32,7 +32,7 @@ function Home() {
       title: 'Text to Speech',
       description: 'Convert your text into natural-sounding speech using the Kokoro TTS model with multiple voice options.',
       icon: <RecordVoiceOverIcon sx={{ fontSize: 60 }} />,
-      path: '/voice-clone',
+      path: '/text-to-speech',
       color: theme.palette.secondary.main,
     },
   ];
