@@ -9,7 +9,7 @@ This full-stack web application provides AI-powered services:
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/ai_services.git
+git clone https://github.com/amirqeysarbeigi/ai_services.git
 cd ai_services
 
 # Install Python dependencies
