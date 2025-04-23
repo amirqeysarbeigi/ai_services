@@ -135,7 +135,7 @@ function TextToSpeech() {
 
       // Convert base64 audio to blob URL
       const audioBlob = new Blob(
-        [Buffer.from(data.audio, 'base64')],
+        [new Uint8Array([...atob(data.audio)].map(char => char.charCodeAt(0)))],
         { type: 'audio/wav' }
       );
       const url = URL.createObjectURL(audioBlob);
