@@ -9,12 +9,15 @@ import {
   TextField,
   CircularProgress,
   useTheme as useMuiTheme,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
-import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 
 const MotionPaper = motion(Paper);
 
@@ -22,10 +25,10 @@ const API_BASE_URL = 'http://localhost:5000';
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 2000; // 2 seconds
 
-function VoiceClone() {
+function TextToSpeech() {
   const theme = useMuiTheme();
-  const [audioFile, setAudioFile] = useState(null);
   const [text, setText] = useState('');
+  const [voice, setVoice] = useState('af_heart');
   const [loading, setLoading] = useState(false);
   const [audioUrl, setAudioUrl] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -52,7 +55,7 @@ function VoiceClone() {
         const data = await response.json();
         setIsBackendAvailable(data.status === 'ok');
         if (!data.tts_available) {
-          setError('Voice generation service is currently unavailable. Please try again later.');
+          setError('Text-to-speech service is currently unavailable. Please try again later.');
         }
       } catch (error) {
         console.error('Backend health check failed:', error);
@@ -83,30 +86,12 @@ function VoiceClone() {
     };
   }, [audioElement, audioUrl]);
 
-  const handleAudioUpload = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      // Validate file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        setError('File size too large. Please upload a file smaller than 10MB.');
-        return;
-      }
-      
-      // Validate file type
-      const validTypes = ['audio/wav', 'audio/mp3', 'audio/ogg'];
-      if (!validTypes.includes(file.type)) {
-        setError('Invalid file type. Please upload a WAV, MP3, or OGG file.');
-        return;
-      }
-
-      setAudioFile(file);
-      setAudioUrl(null);
-      setError(null);
-    }
-  };
-
   const handleGenerate = async () => {
-    if (!audioFile || !text) return;
+    if (!text) {
+      setError('Please enter some text to convert to speech.');
+      return;
+    }
+    
     if (!isBackendAvailable) {
       setError('Cannot connect to the server. Please make sure the backend server is running.');
       return;
@@ -117,10 +102,10 @@ function VoiceClone() {
     
     try {
       const formData = new FormData();
-      formData.append('reference_audio', audioFile);
       formData.append('text', text);
+      formData.append('voice', voice);
 
-      const response = await fetch(`${API_BASE_URL}/api/voice-clone`, {
+      const response = await fetch(`${API_BASE_URL}/api/tts`, {
         method: 'POST',
         body: formData,
         headers: {
@@ -161,16 +146,16 @@ function VoiceClone() {
       audio.onended = () => setIsPlaying(false);
       setAudioElement(audio);
     } catch (error) {
-      console.error('Error generating voice:', error);
+      console.error('Error generating speech:', error);
       let errorMessage = error.message;
       
       // Handle specific error cases
       if (errorMessage.includes('Failed to fetch')) {
         errorMessage = 'Cannot connect to the server. Please make sure the backend server is running on port 5000.';
       } else if (errorMessage.includes('TTS model not available')) {
-        errorMessage = 'The voice generation service is currently unavailable. Please try again in a few moments.';
-      } else if (errorMessage.includes('Failed to generate voice')) {
-        errorMessage = 'Failed to generate voice. Please try with different text or audio input.';
+        errorMessage = 'The text-to-speech service is currently unavailable. Please try again in a few moments.';
+      } else if (errorMessage.includes('Failed to generate speech')) {
+        errorMessage = 'Failed to generate speech. Please try with different text.';
       }
       
       setError(errorMessage);
@@ -190,215 +175,166 @@ function VoiceClone() {
     setIsPlaying(!isPlaying);
   };
 
-  const AudioUploadBox = () => (
-    <MotionPaper
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      sx={{
-        p: 3,
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: theme.palette.mode === 'dark'
-          ? 'rgba(255, 255, 255, 0.05)'
-          : 'rgba(0, 0, 0, 0.02)',
-        border: '2px dashed',
-        borderColor: audioFile ? 'primary.main' : 'divider',
-        cursor: 'pointer',
-        transition: 'all 0.3s ease-in-out',
-        '&:hover': {
-          borderColor: 'primary.main',
-          transform: 'translateY(-4px)',
-        },
-      }}
-      onClick={() => document.getElementById('audio-upload').click()}
-    >
-      <input
-        type="file"
-        id="audio-upload"
-        accept="audio/*"
-        style={{ display: 'none' }}
-        onChange={handleAudioUpload}
-      />
-      {audioFile ? (
-        <Box sx={{ width: '100%', textAlign: 'center' }}>
-          <Typography variant="h6" gutterBottom>
-            {audioFile.name}
-          </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={(e) => {
-              e.stopPropagation();
-              document.getElementById('audio-upload').click();
-            }}
-          >
-            Change Audio
-          </Button>
-        </Box>
-      ) : (
-        <>
-          <CloudUploadIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
-          <Typography variant="h6" gutterBottom>
-            Upload Reference Audio
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Click to upload an audio file
-          </Typography>
-        </>
-      )}
-    </MotionPaper>
-  );
-
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ my: 8 }}>
-        <Typography
-          variant="h3"
-          component="h1"
-          gutterBottom
-          align="center"
-          sx={{
-            fontWeight: 700,
-            mb: 4,
-            background: theme.palette.mode === 'dark'
-              ? 'linear-gradient(45deg, #1a237e 30%, #0d47a1 90%)'
-              : 'linear-gradient(45deg, #2196f3 30%, #1976d2 90%)',
-            backgroundClip: 'text',
-            textFillColor: 'transparent',
-          }}
-        >
-          Voice Cloning
-        </Typography>
-
-        {!isBackendAvailable && (
+    <Container maxWidth="lg" sx={{ py: 6 }}>
+      <Grid container spacing={4}>
+        <Grid item xs={12}>
           <MotionPaper
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             sx={{
-              mb: 4,
               p: 3,
-              bgcolor: 'error.main',
-              color: 'error.contrastText',
+              mb: 4,
+              background: theme.palette.mode === 'dark'
+                ? 'linear-gradient(135deg, rgba(40, 40, 80, 0.5) 0%, rgba(40, 40, 80, 0.3) 100%)'
+                : 'linear-gradient(135deg, rgba(200, 220, 255, 0.5) 0%, rgba(200, 220, 255, 0.3) 100%)',
+              borderRadius: 2,
+              boxShadow: theme.palette.mode === 'dark'
+                ? '0 8px 32px rgba(10, 10, 30, 0.3)'
+                : '0 8px 32px rgba(100, 120, 160, 0.1)',
             }}
           >
-            <Typography>
-              Cannot connect to the server. Please make sure the backend server is running on port 5000.
+            <Typography variant="h4" component="h1" gutterBottom>
+              Text to Speech
+            </Typography>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              Convert your text into natural-sounding speech using the Kokoro TTS model.
             </Typography>
           </MotionPaper>
-        )}
-
-        <Grid container spacing={4}>
-          <Grid item xs={12} md={6}>
-            <AudioUploadBox />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <MotionPaper
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              sx={{
-                p: 3,
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                background: theme.palette.mode === 'dark'
-                  ? 'rgba(255, 255, 255, 0.05)'
-                  : 'rgba(0, 0, 0, 0.02)',
-              }}
-            >
-              <Typography variant="h6" gutterBottom>
-                Enter Text to Clone
-              </Typography>
-              <TextField
-                multiline
-                rows={6}
-                variant="outlined"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Enter the text you want to clone..."
-                fullWidth
-                sx={{ mb: 3 }}
-              />
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleGenerate}
-                disabled={!audioFile || !text || loading}
-                startIcon={loading ? <CircularProgress size={20} /> : <VolumeUpIcon />}
-                sx={{
-                  mt: 'auto',
-                  py: 1.5,
-                  borderRadius: '30px',
-                  fontSize: '1.1rem',
-                  background: theme.palette.mode === 'dark'
-                    ? 'linear-gradient(45deg, #1a237e 30%, #0d47a1 90%)'
-                    : 'linear-gradient(45deg, #2196f3 30%, #1976d2 90%)',
-                  '&:hover': {
-                    background: theme.palette.mode === 'dark'
-                      ? 'linear-gradient(45deg, #0d47a1 30%, #1a237e 90%)'
-                      : 'linear-gradient(45deg, #1976d2 30%, #2196f3 90%)',
-                  },
-                }}
-              >
-                {loading ? 'Generating...' : 'Generate Voice'}
-              </Button>
-            </MotionPaper>
-          </Grid>
         </Grid>
 
-        {error && (
+        <Grid item xs={12} md={7}>
           <MotionPaper
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
             sx={{
-              mt: 4,
               p: 3,
-              bgcolor: 'error.main',
-              color: 'error.contrastText',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
-            <Typography>{error}</Typography>
-          </MotionPaper>
-        )}
-
-        <AnimatePresence>
-          {audioUrl && (
-            <MotionPaper
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              sx={{
-                mt: 4,
-                p: 3,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 2,
-                background: theme.palette.mode === 'dark'
-                  ? 'rgba(255, 255, 255, 0.05)'
-                  : 'rgba(0, 0, 0, 0.02)',
-              }}
-            >
+            <Typography variant="h6" gutterBottom>
+              Enter your text
+            </Typography>
+            <TextField
+              fullWidth
+              multiline
+              rows={6}
+              variant="outlined"
+              placeholder="Type or paste the text you want to convert to speech..."
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+            
+            <FormControl fullWidth sx={{ mb: 3 }}>
+              <InputLabel id="voice-select-label">Voice</InputLabel>
+              <Select
+                labelId="voice-select-label"
+                id="voice-select"
+                value={voice}
+                label="Voice"
+                onChange={(e) => setVoice(e.target.value)}
+              >
+                <MenuItem value="af_heart">English (Default)</MenuItem>
+                <MenuItem value="en_GB">English (British)</MenuItem>
+                <MenuItem value="en_AU">English (Australian)</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <Box sx={{ mt: 'auto' }}>
               <Button
                 variant="contained"
                 color="primary"
-                onClick={handlePlayPause}
-                startIcon={isPlaying ? <StopIcon /> : <PlayArrowIcon />}
-                sx={{
-                  borderRadius: '30px',
-                  px: 4,
-                }}
+                size="large"
+                fullWidth
+                onClick={handleGenerate}
+                disabled={loading || !text.trim() || !isBackendAvailable}
+                startIcon={loading ? <CircularProgress size={24} color="inherit" /> : <VolumeUpIcon />}
               >
-                {isPlaying ? 'Stop' : 'Play'}
+                {loading ? 'Generating...' : 'Generate Speech'}
               </Button>
-            </MotionPaper>
-          )}
-        </AnimatePresence>
-      </Box>
+              {error && (
+                <Typography color="error" variant="body2" sx={{ mt: 2 }}>
+                  {error}
+                </Typography>
+              )}
+            </Box>
+          </MotionPaper>
+        </Grid>
+
+        <Grid item xs={12} md={5}>
+          <MotionPaper
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            sx={{
+              p: 3,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <Typography variant="h6" gutterBottom>
+              Generated Audio
+            </Typography>
+            
+            <Box
+              sx={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minHeight: '200px',
+                background: theme.palette.mode === 'dark'
+                  ? 'rgba(0, 0, 0, 0.1)'
+                  : 'rgba(0, 0, 0, 0.02)',
+                borderRadius: 1,
+                mb: 2,
+              }}
+            >
+              {audioUrl ? (
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="body1" gutterBottom>
+                    Your audio is ready to play
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={handlePlayPause}
+                    startIcon={isPlaying ? <StopIcon /> : <PlayArrowIcon />}
+                    sx={{ mt: 2 }}
+                  >
+                    {isPlaying ? 'Pause' : 'Play'}
+                  </Button>
+                </Box>
+              ) : (
+                <Typography color="text.secondary" variant="body1">
+                  Generated audio will appear here
+                </Typography>
+              )}
+            </Box>
+            
+            {audioUrl && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body2" gutterBottom>
+                  Tips for best results:
+                </Typography>
+                <ul style={{ margin: 0, paddingLeft: 16 }}>
+                  <li>Use proper punctuation for natural pauses</li>
+                  <li>Try different voices for variety</li>
+                  <li>Keep text length reasonable for best performance</li>
+                </ul>
+              </Box>
+            )}
+          </MotionPaper>
+        </Grid>
+      </Grid>
     </Container>
   );
 }
 
-export default VoiceClone; 
+export default TextToSpeech; 

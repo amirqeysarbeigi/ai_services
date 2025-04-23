@@ -66,7 +66,7 @@ function Navbar() {
               },
             }}
           >
-            Voice Clone
+            Text to Speech
           </Button>
           <IconButton
             color="inherit"

@@ -29,8 +29,8 @@ function Home() {
       color: theme.palette.primary.main,
     },
     {
-      title: 'Voice Cloning',
-      description: 'Generate speech that sounds like a specific person by analyzing their voice characteristics.',
+      title: 'Text to Speech',
+      description: 'Convert your text into natural-sounding speech using the Kokoro TTS model with multiple voice options.',
       icon: <RecordVoiceOverIcon sx={{ fontSize: 60 }} />,
       path: '/voice-clone',
       color: theme.palette.secondary.main,
@@ -71,7 +71,7 @@ function Home() {
               opacity: 0.9,
             }}
           >
-            Explore our advanced AI-powered tools for face detection and voice cloning
+            Explore our advanced AI-powered tools for face detection and text-to-speech conversion
           </Typography>
         </Box>
 

@@ -165,72 +165,53 @@ def voice_clone():
         }), 503
         
     try:
-        # Validate request
-        if 'reference_audio' not in request.files:
-            return jsonify({'error': 'No reference audio file provided'}), 400
-            
-        reference_audio = request.files['reference_audio']
-        if not reference_audio.filename:
-            return jsonify({'error': 'No selected file'}), 400
-            
-        # Validate file type
-        if not reference_audio.filename.lower().endswith(('.wav', '.mp3', '.ogg')):
-            return jsonify({'error': 'Invalid file type. Please upload a WAV, MP3, or OGG file'}), 400
-            
-        # Validate file size (max 10MB)
-        if len(reference_audio.getvalue()) > 10 * 1024 * 1024:
-            return jsonify({'error': 'File size too large. Please upload a file smaller than 10MB'}), 400
-            
+        # Get text to convert to speech
         text_to_speak = request.form.get('text', '').strip()
         if not text_to_speak:
             return jsonify({'error': 'No text provided'}), 400
             
-        # Create temporary files with proper cleanup
-        temp_files = []
+        # Create temporary file for output
+        output_path = tempfile.mktemp(suffix='.wav')
+        
         try:
-            # Save reference audio temporarily
-            temp_ref = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
-            temp_files.append(temp_ref.name)
-            reference_audio.save(temp_ref.name)
-            
-            # Generate cloned voice
-            output_path = tempfile.mktemp(suffix='.wav')
-            temp_files.append(output_path)
-            
-            try:
-                tts_manager.generate_speech(text_to_speak, output_path)
-            except Exception as tts_error:
-                print(f"Error during TTS generation: {str(tts_error)}")
-                return jsonify({
-                    'error': 'Failed to generate voice',
-                    'details': str(tts_error)
-                }), 500
-            
-            # Read the generated audio and encode as base64
-            with open(output_path, 'rb') as f:
-                audio_data = f.read()
-                audio_base64 = base64.b64encode(audio_data).decode('utf-8')
-                
+            # Generate speech with default voice
+            voice = request.form.get('voice', 'af_heart')  # Default voice
+            tts_manager.generate_speech(text_to_speak, output_path, voice=voice)
+        except Exception as tts_error:
+            print(f"Error during TTS generation: {str(tts_error)}")
+            if os.path.exists(output_path):
+                os.unlink(output_path)
             return jsonify({
-                'audio': audio_base64,
-                'success': True
-            })
+                'error': 'Failed to generate speech',
+                'details': str(tts_error)
+            }), 500
+        
+        # Read the generated audio and encode as base64
+        with open(output_path, 'rb') as f:
+            audio_data = f.read()
+            audio_base64 = base64.b64encode(audio_data).decode('utf-8')
             
-        finally:
-            # Clean up temporary files
-            for temp_file in temp_files:
-                try:
-                    if os.path.exists(temp_file):
-                        os.unlink(temp_file)
-                except Exception as e:
-                    print(f"Warning: Failed to delete temporary file {temp_file}: {str(e)}")
+        # Clean up temporary file
+        if os.path.exists(output_path):
+            os.unlink(output_path)
+                
+        return jsonify({
+            'audio': audio_base64,
+            'success': True
+        })
             
     except Exception as e:
-        print(f"Error in voice cloning: {str(e)}")
+        print(f"Error in text-to-speech: {str(e)}")
         return jsonify({
-            'error': 'Failed to process voice cloning request',
+            'error': 'Failed to process text-to-speech request',
             'details': str(e)
         }), 500
+
+# Add a new endpoint specifically for TTS
+@app.route('/api/tts', methods=['POST'])
+def text_to_speech():
+    # This is an alias for the voice-clone endpoint for better API naming
+    return voice_clone()
 
 # Add a health check endpoint
 @app.route('/api/health', methods=['GET'])

@@ -4,7 +4,7 @@ import { Box } from '@mui/material';
 import Navbar from './components/Navbar';
 import Home from './components/Home';
 import FaceDetection from './components/FaceDetection';
-import VoiceClone from './components/VoiceClone';
+import TextToSpeech from './components/VoiceClone';
 import { ThemeProvider } from './context/ThemeContext';
 
 function App() {
@@ -17,7 +17,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/face-detection" element={<FaceDetection />} />
-              <Route path="/voice-clone" element={<VoiceClone />} />
+              <Route path="/voice-clone" element={<TextToSpeech />} />
             </Routes>
           </Box>
         </Box>
