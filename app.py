@@ -52,17 +52,27 @@ except Exception as e:
     face_detector = None
     face_recognizer = None
 
+def preprocess_image(img):
+    # Resize large images while maintaining aspect ratio
+    max_dimension = 1500
+    height, width = img.shape[:2]
+    
+    if height > max_dimension or width > max_dimension:
+        scale = max_dimension / max(height, width)
+        new_width = int(width * scale)
+        new_height = int(height * scale)
+        img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
+    
+    return img
+
 def detect_faces(image):
     if face_detector is None:
         raise Exception("Face detector model not loaded")
     
-    img_width = int(image.shape[1])
-    img_height = int(image.shape[0])
-    image = cv2.resize(image, (img_width, img_height))
-    
-    face_detector.setInputSize(input_size=(image.shape[1], image.shape[0]))
-    faces = face_detector.detect(image=image)
-    return image, faces
+    # Set input size for the face detector
+    face_detector.setInputSize((image.shape[1], image.shape[0]))
+    faces = face_detector.detect(image)
+    return faces
 
 def extract_features(image, faces):
     if face_recognizer is None:
@@ -100,29 +110,34 @@ def compare_faces(features1, features2):
 def face_detection():
     try:
         print("Received face detection request")
-        # Get images from request
         if 'image1' not in request.files or 'image2' not in request.files:
-            print("Missing image files in request")
-            return jsonify({'error': 'Both image1 and image2 are required'}), 400
-            
+            return jsonify({'error': 'Both images are required'}), 400
+
         image1 = request.files['image1']
         image2 = request.files['image2']
         
         print(f"Received images: image1={image1.filename}, image2={image2.filename}")
         
-        # Convert to numpy arrays
+        # Read images
         img1 = cv2.imdecode(np.frombuffer(image1.read(), np.uint8), cv2.IMREAD_COLOR)
         img2 = cv2.imdecode(np.frombuffer(image2.read(), np.uint8), cv2.IMREAD_COLOR)
         
+        if img1 is None or img2 is None:
+            return jsonify({'error': 'Failed to read one or both images'}), 400
+            
         print(f"Image shapes: img1={img1.shape}, img2={img2.shape}")
         
+        # Preprocess images
+        img1 = preprocess_image(img1)
+        img2 = preprocess_image(img2)
+        
         # Detect faces
-        img1, faces1 = detect_faces(img1)
-        img2, faces2 = detect_faces(img2)
+        faces1 = detect_faces(img1)
+        faces2 = detect_faces(img2)
         
-        print(f"Detected faces: faces1={faces1[1] is not None}, faces2={faces2[1] is not None}")
+        print(f"Detected faces: faces1={bool(faces1)}, faces2={bool(faces2)}")
         
-        if faces1[1] is None or faces2[1] is None:
+        if not faces1 or not faces2:
             return jsonify({'error': 'No faces found in one or both images'}), 400
         
         # Extract features
