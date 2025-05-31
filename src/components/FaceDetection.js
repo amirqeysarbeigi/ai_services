@@ -8,12 +8,17 @@ import {
   Button,
   CircularProgress,
   useTheme as useMuiTheme,
+  Chip,
+  Divider,
+  Avatar,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
+import InsightsIcon from '@mui/icons-material/Insights';
+import CircularProgressWithLabel from './ui/CircularProgressWithLabel';
 
 const MotionPaper = motion(Paper);
 
@@ -23,6 +28,9 @@ function FaceDetection() {
   const [image2, setImage2] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // Simulate daily requests
+  const dailyRequests = 42;
 
   const handleImageUpload = (event, setImage) => {
     const file = event.target.files[0];
@@ -82,6 +90,15 @@ function FaceDetection() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper for similarity percentage
+  const getSimilarity = () => {
+    if (result && result.confidence && typeof result.confidence.cosine_score === 'number') {
+      // Map cosine score (0.0-1.0) to percentage
+      return Math.round(result.confidence.cosine_score * 100);
+    }
+    return null;
   };
 
   const ImageUploadBox = ({ image, onUpload, label }) => (
@@ -164,7 +181,7 @@ function FaceDetection() {
           align="center"
           sx={{
             fontWeight: 700,
-            mb: 4,
+            mb: 2,
             background: theme.palette.mode === 'dark'
               ? 'linear-gradient(45deg, #1a237e 30%, #0d47a1 90%)'
               : 'linear-gradient(45deg, #2196f3 30%, #1976d2 90%)',
@@ -174,8 +191,20 @@ function FaceDetection() {
         >
           Face Detection
         </Typography>
+        <Typography align="center" color="text.secondary" sx={{ mb: 4 }}>
+          Upload two images to compare faces using advanced AI recognition
+        </Typography>
 
-        <Grid container spacing={4}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+          <Chip
+            icon={<InsightsIcon />}
+            label={`Today's Requests: ${dailyRequests}`}
+            color="primary"
+            sx={{ fontWeight: 600, fontSize: '1.1rem', px: 2, py: 1, borderRadius: 2, boxShadow: 2 }}
+          />
+        </Box>
+
+        <Grid container spacing={4} justifyContent="center">
           <Grid item xs={12} md={6}>
             <ImageUploadBox
               image={image1}
@@ -200,61 +229,82 @@ function FaceDetection() {
             onClick={handleCompare}
             disabled={!image1 || !image2 || loading}
             sx={{
-              px: 4,
+              px: 5,
               py: 1.5,
-              borderRadius: '30px',
+              fontWeight: 600,
               fontSize: '1.1rem',
-              background: theme.palette.mode === 'dark'
-                ? 'linear-gradient(45deg, #1a237e 30%, #0d47a1 90%)'
-                : 'linear-gradient(45deg, #2196f3 30%, #1976d2 90%)',
-              '&:hover': {
-                background: theme.palette.mode === 'dark'
-                  ? 'linear-gradient(45deg, #0d47a1 30%, #1a237e 90%)'
-                  : 'linear-gradient(45deg, #1976d2 30%, #2196f3 90%)',
-              },
+              borderRadius: 2,
+              boxShadow: 3,
             }}
           >
-            {loading ? <CircularProgress size={24} color="inherit" /> : 'Compare Faces'}
+            Compare Faces
           </Button>
         </Box>
 
-        <AnimatePresence>
-          {result && (
-            <MotionPaper
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              sx={{
-                mt: 4,
-                p: 3,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 2,
-                background: result.match
-                  ? 'rgba(76, 175, 80, 0.1)'
-                  : result.error
-                  ? 'rgba(244, 67, 54, 0.1)'
-                  : 'rgba(33, 150, 243, 0.1)',
-              }}
-            >
-              {result.match ? (
-                <CheckCircleIcon color="success" sx={{ fontSize: 40 }} />
-              ) : result.error ? (
-                <ErrorIcon color="error" sx={{ fontSize: 40 }} />
-              ) : (
-                <ErrorIcon color="info" sx={{ fontSize: 40 }} />
-              )}
-              <Typography variant="h6">
-                {result.match
-                  ? 'The faces match!'
-                  : result.error
-                  ? result.error
-                  : 'The faces do not match.'}
-              </Typography>
-            </MotionPaper>
+        {/* Analysis Results Section */}
+        <Box
+          sx={{
+            mt: 6,
+            mx: 'auto',
+            maxWidth: 500,
+            p: 4,
+            borderRadius: 4,
+            background: theme.palette.mode === 'dark'
+              ? 'rgba(255,255,255,0.03)'
+              : 'rgba(0,0,0,0.03)',
+            boxShadow: 4,
+            border: '2px solid',
+            borderColor: theme.palette.mode === 'dark' ? 'primary.dark' : 'primary.light',
+            textAlign: 'center',
+            minHeight: 220,
+          }}
+        >
+          <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
+            Analysis Results
+          </Typography>
+          <Divider sx={{ mb: 3 }} />
+          {loading ? (
+            <CircularProgress size={48} color="primary" />
+          ) : result ? (
+            result.error ? (
+              <Box>
+                <ErrorIcon color="error" sx={{ fontSize: 40, mb: 1 }} />
+                <Typography color="error" sx={{ fontWeight: 600 }}>{result.error}</Typography>
+              </Box>
+            ) : (
+              <Box>
+                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                  <CircularProgressWithLabel
+                    value={getSimilarity() ?? 0}
+                    label={`${getSimilarity() ?? '--'}% Similarity`}
+                    color={result.match ? 'success' : 'warning'}
+                  />
+                </Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                  {result.match ? (
+                    <span style={{ color: theme.palette.success.main }}>
+                      <CheckCircleIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+                      Faces Match
+                    </span>
+                  ) : (
+                    <span style={{ color: theme.palette.warning.main }}>
+                      <ErrorIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+                      No Match
+                    </span>
+                  )}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  L2 Score: {result.confidence?.l2_score?.toFixed(3) ?? '--'}<br />
+                  Cosine Score: {result.confidence?.cosine_score?.toFixed(3) ?? '--'}
+                </Typography>
+              </Box>
+            )
+          ) : (
+            <Typography color="text.secondary" sx={{ mt: 4 }}>
+              Upload two images and click "Compare Faces" to see the results here.
+            </Typography>
           )}
-        </AnimatePresence>
+        </Box>
       </Box>
     </Container>
   );

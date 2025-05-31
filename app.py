@@ -1,6 +1,9 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask_cors import cross_origin
 from flask_mail import Mail, Message
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 import numpy as np
 from PIL import Image
 import io
@@ -12,15 +15,54 @@ from pathlib import Path
 from tts_manager import TTSManager
 
 app = Flask(__name__)
-# Enable CORS for all routes during development
-CORS(app, resources={
-    r"/*": {
-        "origins": "*",  # Allow all origins during development
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-        "supports_credentials": True
-    }
-})
+
+# Flask-SQLAlchemy configuration
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db' # Using SQLite database
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+# Flask-Login configuration
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'a_very_secret_key_for_dev') # Change in production!
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login' # Optional: Set the login route
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# Database Models
+
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.now())
+    requests = db.relationship('ServiceRequest', backref='author', lazy=True)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+    def __repr__(self):
+        return f"User('{self.username}', '{self.email}')"
+
+class ServiceRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    service_type = db.Column(db.String(50), nullable=False)
+    timestamp = db.Column(db.DateTime, default=db.func.now())
+    result_data = db.Column(db.Text)
+
+    def __repr__(self):
+        return f"ServiceRequest('{self.service_type}', '{self.timestamp}')"
+
+# Create database tables if they don't exist
+with app.app_context():
+    db.create_all()
 
 # Configure Flask-Mail
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -31,14 +73,6 @@ app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', 'your-app-password')  #
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME', 'your-email@gmail.com')
 
 mail = Mail(app)
-
-# Add CORS headers to all responses
-@app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    return response
 
 # Initialize TTS manager
 print("Initializing TTS manager...")
@@ -118,6 +152,8 @@ def compare_faces(features1, features2):
     }
 
 @app.route('/api/face-detection', methods=['POST'])
+@login_required
+@cross_origin(origins="http://localhost:3000", methods=["POST", "OPTIONS"], supports_credentials=True, allow_headers=["Content-Type", "Authorization"])
 def face_detection():
     try:
         print("Received face detection request")
@@ -176,15 +212,63 @@ def face_detection():
         }
         
         print(f"Comparison result: {result}")
+
+        # Log the request if user is logged in
+        if current_user.is_authenticated:
+            try:
+                request_log = ServiceRequest(
+                    user_id=current_user.id,
+                    service_type='face-detection',
+                    result_data=jsonify(result).get_data(as_text=True) # Store result as JSON string
+                )
+                db.session.add(request_log)
+                db.session.commit()
+                print("Face detection request logged for user: ", current_user.username)
+            except Exception as log_error:
+                print(f"Error logging face detection request: {str(log_error)}")
+                db.session.rollback() # Rollback log entry if it fails
+
         return jsonify(result)
         
     except Exception as e:
         print(f"Error in face detection: {str(e)}")
+        # Log the error request if user is logged in
+        if current_user.is_authenticated:
+             try:
+                 request_log = ServiceRequest(
+                     user_id=current_user.id,
+                     service_type='face-detection',
+                     result_data=f'Error: {str(e)}' # Store error message
+                 )
+                 db.session.add(request_log)
+                 db.session.commit()
+                 print("Face detection error logged for user: ", current_user.username)
+             except Exception as log_error:
+                 print(f"Error logging face detection error: {str(log_error)}")
+                 db.session.rollback()
+
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/voice-clone', methods=['POST'])
+@login_required
+@cross_origin(origins="http://localhost:3000", methods=["POST", "OPTIONS"], supports_credentials=True, allow_headers=["Content-Type", "Authorization"])
 def voice_clone():
     if not tts_manager.is_available():
+        # Log error if user is logged in and TTS is unavailable
+        if current_user.is_authenticated:
+            try:
+                request_log = ServiceRequest(
+                    user_id=current_user.id,
+                    service_type='text-to-speech',
+                    result_data='Error: TTS model not available'
+                )
+                db.session.add(request_log)
+                db.session.commit()
+                print("TTS unavailable error logged for user: ", current_user.username)
+            except Exception as log_error:
+                print(f"Error logging TTS unavailable error: {str(log_error)}")
+                db.session.rollback()
+
         return jsonify({
             'error': 'TTS model not available. Please try again in a few moments or contact support if the issue persists.',
             'details': 'The text-to-speech model failed to initialize. This could be due to missing model files or insufficient system resources.'
@@ -193,6 +277,8 @@ def voice_clone():
     try:
         # Get text to convert to speech
         text_to_speak = request.form.get('text', '').strip()
+        voice_option = request.form.get('voice', 'af_heart')
+
         if not text_to_speak:
             return jsonify({'error': 'No text provided'}), 400
             
@@ -200,13 +286,28 @@ def voice_clone():
         output_path = tempfile.mktemp(suffix='.wav')
         
         try:
-            # Generate speech with default voice
-            voice = request.form.get('voice', 'af_heart')  # Default voice
-            tts_manager.generate_speech(text_to_speak, output_path, voice=voice)
+            # Generate speech
+            tts_manager.generate_speech(text_to_speak, output_path, voice=voice_option)
         except Exception as tts_error:
             print(f"Error during TTS generation: {str(tts_error)}")
             if os.path.exists(output_path):
                 os.unlink(output_path)
+
+            # Log TTS generation error if user is logged in
+            if current_user.is_authenticated:
+                 try:
+                     request_log = ServiceRequest(
+                         user_id=current_user.id,
+                         service_type='text-to-speech',
+                         result_data=f'Error: {str(tts_error)}'
+                     )
+                     db.session.add(request_log)
+                     db.session.commit()
+                     print("TTS generation error logged for user: ", current_user.username)
+                 except Exception as log_error:
+                     print(f"Error logging TTS generation error: {str(log_error)}")
+                     db.session.rollback()
+
             return jsonify({
                 'error': 'Failed to generate speech',
                 'details': str(tts_error)
@@ -220,7 +321,22 @@ def voice_clone():
         # Clean up temporary file
         if os.path.exists(output_path):
             os.unlink(output_path)
-                
+
+        # Log the successful request if user is logged in
+        if current_user.is_authenticated:
+             try:
+                 request_log = ServiceRequest(
+                     user_id=current_user.id,
+                     service_type='text-to-speech',
+                     result_data=f'Text: {text_to_speak[:100]}..., Voice: {voice_option}' # Log first 100 chars and voice
+                 )
+                 db.session.add(request_log)
+                 db.session.commit()
+                 print("Text to speech request logged for user: ", current_user.username)
+             except Exception as log_error:
+                 print(f"Error logging text to speech request: {str(log_error)}")
+                 db.session.rollback()
+
         return jsonify({
             'audio': audio_base64,
             'success': True
@@ -228,6 +344,21 @@ def voice_clone():
             
     except Exception as e:
         print(f"Error in text-to-speech: {str(e)}")
+        # Log the general error request if user is logged in
+        if current_user.is_authenticated:
+             try:
+                 request_log = ServiceRequest(
+                     user_id=current_user.id,
+                     service_type='text-to-speech',
+                     result_data=f'Error: {str(e)}'
+                 )
+                 db.session.add(request_log)
+                 db.session.commit()
+                 print("Text to speech general error logged for user: ", current_user.username)
+             except Exception as log_error:
+                 print(f"Error logging text to speech general error: {str(log_error)}")
+                 db.session.rollback()
+
         return jsonify({
             'error': 'Failed to process text-to-speech request',
             'details': str(e)
@@ -235,12 +366,15 @@ def voice_clone():
 
 # Add a new endpoint specifically for TTS
 @app.route('/api/tts', methods=['POST'])
+@login_required
+@cross_origin(origins="http://localhost:3000", methods=["POST", "OPTIONS"], supports_credentials=True, allow_headers=["Content-Type", "Authorization"])
 def text_to_speech():
     # This is an alias for the voice-clone endpoint for better API naming
     return voice_clone()
 
 # Add a health check endpoint
 @app.route('/api/health', methods=['GET'])
+@cross_origin(origins="*", methods=["GET", "OPTIONS"], supports_credentials=False)
 def health_check():
     return jsonify({
         'status': 'ok',
@@ -250,6 +384,7 @@ def health_check():
     })
 
 @app.route('/api/contact', methods=['POST'])
+@cross_origin(origins="*", methods=["POST", "OPTIONS"], supports_credentials=False)
 def contact():
     try:
         data = request.json
@@ -288,6 +423,91 @@ def contact():
             'error': 'Failed to send message',
             'details': str(e)
         }), 500
+
+@app.route('/api/signup', methods=['POST'])
+@cross_origin(origins="http://localhost:3000", methods=["POST", "OPTIONS"], supports_credentials=True, allow_headers=["Content-Type", "Authorization"])
+def signup():
+    data = request.json
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+
+    if not all([username, email, password]):
+        return jsonify({'error': 'All fields are required'}), 400
+
+    # Check if user already exists
+    existing_user = User.query.filter_by(username=username).first()
+    if existing_user:
+        return jsonify({'error': 'Username already exists'}), 409
+
+    existing_email = User.query.filter_by(email=email).first()
+    if existing_email:
+        return jsonify({'error': 'Email already exists'}), 409
+
+    new_user = User(username=username, email=email)
+    new_user.set_password(password)
+
+    db.session.add(new_user)
+    db.session.commit()
+
+    return jsonify({'message': 'User created successfully!'}), 201
+
+@app.route('/api/login', methods=['POST'])
+@cross_origin(origins="http://localhost:3000", methods=["POST", "OPTIONS"], supports_credentials=True, allow_headers=["Content-Type", "Authorization"])
+def login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+
+    if not all([username, password]):
+        return jsonify({'error': 'Username and password are required'}), 400
+
+    user = User.query.filter_by(username=username).first()
+
+    if user and user.check_password(password):
+        login_user(user) # Log in the user using Flask-Login
+        return jsonify({'message': 'Login successful!', 'user': {'username': user.username, 'email': user.email}}), 200
+    else:
+        return jsonify({'error': 'Invalid username or password'}), 401
+
+@app.route('/api/logout', methods=['POST'])
+@login_required
+@cross_origin(origins="http://localhost:3000", methods=["POST", "OPTIONS"], supports_credentials=True, allow_headers=["Content-Type", "Authorization"])
+def logout():
+    logout_user() # Log out the user using Flask-Login
+    return jsonify({'message': 'Logout successful!'}), 200
+
+@app.route('/api/current_user', methods=['GET'])
+@login_required
+@cross_origin(origins="http://localhost:3000", methods=["GET", "OPTIONS"], supports_credentials=True, allow_headers=["Content-Type", "Authorization"])
+def get_current_user():
+    return jsonify({'user': {'username': current_user.username, 'email': current_user.email}}), 200
+
+# New endpoint to get user's service request history
+@app.route('/api/history', methods=['GET'])
+@login_required
+@cross_origin(origins="http://localhost:3000", methods=["GET", "OPTIONS"], supports_credentials=True, allow_headers=["Content-Type", "Authorization"])
+def get_request_history():
+    """Endpoint to fetch the service request history for the logged-in user."""
+    try:
+        # Query ServiceRequest entries for the current user, ordered by timestamp
+        requests = ServiceRequest.query.filter_by(user_id=current_user.id).order_by(ServiceRequest.timestamp.desc()).all()
+
+        # Prepare the data for JSON response
+        history_data = []
+        for req in requests:
+            history_data.append({
+                'id': req.id,
+                'service_type': req.service_type,
+                'timestamp': req.timestamp.isoformat(), # Format timestamp as ISO string
+                'result_data': req.result_data # Include the result data
+            })
+
+        return jsonify(history_data), 200
+
+    except Exception as e:
+        print(f"Error fetching request history: {str(e)}")
+        return jsonify({'error': 'Failed to fetch request history', 'details': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=False) 

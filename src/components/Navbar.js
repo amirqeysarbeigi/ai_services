@@ -8,18 +8,27 @@ import {
   IconButton,
   useTheme as useMuiTheme,
 } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import FaceIcon from '@mui/icons-material/Face';
 import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
 import InfoIcon from '@mui/icons-material/Info';
 import ContactMailIcon from '@mui/icons-material/ContactMail';
+import HistoryIcon from '@mui/icons-material/History';
 
 function Navbar() {
   const { isDarkMode, toggleTheme } = useTheme();
+  const { isAuthenticated, logout, user } = useAuth();
   const theme = useMuiTheme();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/auth');
+  };
 
   return (
     <AppBar 
@@ -100,6 +109,51 @@ function Navbar() {
           >
             Contact
           </Button>
+
+          {isAuthenticated ? (
+            <>
+              <Button
+                color="inherit"
+                component={RouterLink}
+                to="/history"
+                startIcon={<HistoryIcon />}
+                sx={{
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  },
+                }}
+              >
+                History
+              </Button>
+              <Button
+                color="inherit"
+                onClick={handleLogout}
+                sx={{
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  },
+                }}
+              >
+                Logout ({user?.username})
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                color="inherit"
+                component={RouterLink}
+                to="/auth"
+                sx={{
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  },
+                }}
+              >
+                Sign Up / Login
+              </Button>
+            </>
+          )}
+
           <IconButton
             color="inherit"
             onClick={toggleTheme}

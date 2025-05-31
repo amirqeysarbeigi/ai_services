@@ -13,11 +13,17 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Stack,
+  Tooltip,
+  IconButton,
+  Alert,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
+import AudiotrackIcon from '@mui/icons-material/Audiotrack';
+import WaveformSVG from './ui/WaveformSVG';
 
 const MotionPaper = motion(Paper);
 
@@ -176,60 +182,81 @@ function TextToSpeech() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 6 }}>
-      <Grid container spacing={4}>
-        <Grid item xs={12}>
-          <MotionPaper
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            sx={{
-              p: 3,
-              mb: 4,
-              background: theme.palette.mode === 'dark'
-                ? 'linear-gradient(135deg, rgba(40, 40, 80, 0.5) 0%, rgba(40, 40, 80, 0.3) 100%)'
-                : 'linear-gradient(135deg, rgba(200, 220, 255, 0.5) 0%, rgba(200, 220, 255, 0.3) 100%)',
-              borderRadius: 2,
-              boxShadow: theme.palette.mode === 'dark'
-                ? '0 8px 32px rgba(10, 10, 30, 0.3)'
-                : '0 8px 32px rgba(100, 120, 160, 0.1)',
-            }}
-          >
-            <Typography variant="h4" component="h1" gutterBottom>
-              Text to Speech
-            </Typography>
-            <Typography variant="body1" sx={{ mb: 2 }}>
-              Convert your text into natural-sounding speech using the Kokoro TTS model.
-            </Typography>
-          </MotionPaper>
-        </Grid>
+    <Container maxWidth="md" sx={{ py: 8, minHeight: '90vh', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <Box
+        sx={{
+          mx: 'auto',
+          maxWidth: 700,
+          borderRadius: 5,
+          boxShadow: 8,
+          p: 0,
+          background: 'linear-gradient(135deg, #e3f2fd 0%, #f5f5f5 100%)',
+          border: '3px solid',
+          borderImage: 'linear-gradient(135deg, #2196f3 0%, #21cbf3 100%) 1',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Step Indicator */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 3, background: 'rgba(33,150,243,0.07)' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'primary.main', mr: 2 }}>
+            1. Enter Text
+          </Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'primary.main', mx: 2 }}>
+            →
+          </Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'primary.main', mr: 2 }}>
+            2. Choose Voice
+          </Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'primary.main', mx: 2 }}>
+            →
+          </Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'primary.main' }}>
+            3. Convert & Listen
+          </Typography>
+        </Box>
 
-        <Grid item xs={12} md={7}>
-          <MotionPaper
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
+        {/* Illustration */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 2, mb: 1 }}>
+          <WaveformSVG width={120} height={60} color="#2196f3" />
+        </Box>
+
+        <Box sx={{ px: { xs: 2, sm: 6 }, pb: 4, pt: 2 }}>
+          <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ fontWeight: 700 }}>
+            Text to Speech
+          </Typography>
+          <Typography variant="body1" align="center" sx={{ mb: 3 }}>
+            Convert your text into natural-sounding speech with multiple voice options.
+          </Typography>
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>
+          )}
+
+          <TextField
+            fullWidth
+            multiline
+            minRows={6}
+            maxRows={12}
+            variant="outlined"
+            placeholder="Type or paste the text you want to convert to speech..."
+            value={text}
+            onChange={(e) => setText(e.target.value)}
             sx={{
-              p: 3,
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
+              mb: 3,
+              background: 'rgba(255,255,255,0.9)',
+              borderRadius: 2,
+              fontSize: '1.2rem',
+              boxShadow: 1,
+              '& .MuiInputBase-input': {
+                fontSize: '1.2rem',
+                fontWeight: 500,
+                color: theme.palette.text.primary,
+              },
             }}
-          >
-            <Typography variant="h6" gutterBottom>
-              Enter your text
-            </Typography>
-            <TextField
-              fullWidth
-              multiline
-              rows={6}
-              variant="outlined"
-              placeholder="Type or paste the text you want to convert to speech..."
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              sx={{ mb: 2 }}
-            />
-            
-            <FormControl fullWidth sx={{ mb: 3 }}>
+          />
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" sx={{ mb: 3 }}>
+            <FormControl fullWidth sx={{ minWidth: 180 }}>
               <InputLabel id="voice-select-label">Voice</InputLabel>
               <Select
                 labelId="voice-select-label"
@@ -237,102 +264,104 @@ function TextToSpeech() {
                 value={voice}
                 label="Voice"
                 onChange={(e) => setVoice(e.target.value)}
+                sx={{
+                  borderRadius: 2,
+                  fontWeight: 600,
+                  background: 'rgba(255,255,255,0.95)',
+                }}
+                MenuProps={{
+                  PaperProps: {
+                    sx: { borderRadius: 2, boxShadow: 4 },
+                  },
+                }}
               >
-                <MenuItem value="af_heart">English (Default)</MenuItem>
-                <MenuItem value="en_GB">English (British)</MenuItem>
-                <MenuItem value="en_AU">English (Australian)</MenuItem>
+                <MenuItem value="af_heart"><AudiotrackIcon sx={{ mr: 1, color: 'primary.main' }} />English (Default)</MenuItem>
+                <MenuItem value="en_GB"><AudiotrackIcon sx={{ mr: 1, color: 'secondary.main' }} />English (British)</MenuItem>
+                <MenuItem value="en_AU"><AudiotrackIcon sx={{ mr: 1, color: 'success.main' }} />English (Australian)</MenuItem>
               </Select>
             </FormControl>
-            
-            <Box sx={{ mt: 'auto' }}>
-              <Button
-                variant="contained"
-                color="primary"
-                size="large"
-                fullWidth
-                onClick={handleGenerate}
-                disabled={loading || !text.trim() || !isBackendAvailable}
-                startIcon={loading ? <CircularProgress size={24} color="inherit" /> : <VolumeUpIcon />}
-              >
-                {loading ? 'Generating...' : 'Generate Speech'}
-              </Button>
-              {error && (
-                <Typography color="error" variant="body2" sx={{ mt: 2 }}>
-                  {error}
-                </Typography>
-              )}
-            </Box>
-          </MotionPaper>
-        </Grid>
+            <Button
+              variant="contained"
+              size="large"
+              color="primary"
+              onClick={handleGenerate}
+              disabled={loading || !text}
+              sx={{
+                px: 5,
+                py: 1.5,
+                fontWeight: 700,
+                fontSize: '1.1rem',
+                borderRadius: 2,
+                boxShadow: 3,
+                minWidth: 200,
+                background: 'linear-gradient(90deg, #2196f3 0%, #21cbf3 100%)',
+                transition: 'transform 0.2s',
+                '&:hover': {
+                  background: 'linear-gradient(90deg, #21cbf3 0%, #2196f3 100%)',
+                  transform: 'scale(1.04)',
+                },
+              }}
+              startIcon={<VolumeUpIcon />}
+            >
+              {loading ? <CircularProgress size={24} color="inherit" /> : 'Convert to Speech'}
+            </Button>
+          </Stack>
 
-        <Grid item xs={12} md={5}>
-          <MotionPaper
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+          {/* Animated Output Area */}
+          <Box
             sx={{
+              mt: 4,
+              textAlign: 'center',
+              minHeight: 120,
               p: 3,
-              height: '100%',
+              borderRadius: 3,
+              background: audioUrl ? 'linear-gradient(90deg, #e3f2fd 0%, #bbdefb 100%)' : 'rgba(0,0,0,0.03)',
+              boxShadow: audioUrl ? 6 : 1,
+              transition: 'all 0.4s cubic-bezier(.4,2,.6,1)',
+              border: audioUrl ? '2px solid #2196f3' : '2px dashed #bdbdbd',
               display: 'flex',
               flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            <Typography variant="h6" gutterBottom>
-              Generated Audio
-            </Typography>
-            
-            <Box
-              sx={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                minHeight: '200px',
-                background: theme.palette.mode === 'dark'
-                  ? 'rgba(0, 0, 0, 0.1)'
-                  : 'rgba(0, 0, 0, 0.02)',
-                borderRadius: 1,
-                mb: 2,
-              }}
-            >
-              {audioUrl ? (
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="body1" gutterBottom>
-                    Your audio is ready to play
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    onClick={handlePlayPause}
-                    startIcon={isPlaying ? <StopIcon /> : <PlayArrowIcon />}
-                    sx={{ mt: 2 }}
-                  >
-                    {isPlaying ? 'Pause' : 'Play'}
-                  </Button>
-                </Box>
-              ) : (
-                <Typography color="text.secondary" variant="body1">
-                  Generated audio will appear here
+            {audioUrl ? (
+              <>
+                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600, color: 'primary.main' }}>
+                  Playback
                 </Typography>
-              )}
-            </Box>
-            
-            {audioUrl && (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="body2" gutterBottom>
-                  Tips for best results:
-                </Typography>
-                <ul style={{ margin: 0, paddingLeft: 16 }}>
-                  <li>Use proper punctuation for natural pauses</li>
-                  <li>Try different voices for variety</li>
-                  <li>Keep text length reasonable for best performance</li>
-                </ul>
-              </Box>
+                <Stack direction="row" spacing={2} justifyContent="center" alignItems="center">
+                  <Tooltip title={isPlaying ? 'Pause' : 'Play'}>
+                    <IconButton
+                      color="primary"
+                      size="large"
+                      onClick={handlePlayPause}
+                      sx={{
+                        background: isPlaying ? theme.palette.primary.light : 'rgba(0,0,0,0.05)',
+                        borderRadius: 2,
+                        boxShadow: 1,
+                        '&:hover': {
+                          background: theme.palette.primary.main,
+                          color: 'white',
+                        },
+                        transition: 'all 0.2s',
+                        transform: isPlaying ? 'scale(1.1)' : 'scale(1)',
+                      }}
+                    >
+                      {isPlaying ? <StopIcon fontSize="large" /> : <PlayArrowIcon fontSize="large" />}
+                    </IconButton>
+                  </Tooltip>
+                  <audio src={audioUrl} style={{ display: 'none' }} />
+                </Stack>
+              </>
+            ) : (
+              <Typography color="text.secondary" sx={{ mt: 2 }}>
+                Generated audio will appear here
+              </Typography>
             )}
-          </MotionPaper>
-        </Grid>
-      </Grid>
+          </Box>
+        </Box>
+      </Box>
     </Container>
   );
 }
