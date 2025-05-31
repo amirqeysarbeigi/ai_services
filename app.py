@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_mail import Mail, Message
 import numpy as np
 from PIL import Image
 import io
@@ -20,6 +21,16 @@ CORS(app, resources={
         "supports_credentials": True
     }
 })
+
+# Configure Flask-Mail
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', 'your-email@gmail.com')  # Set your email
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', 'your-app-password')  # Set your app password
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME', 'your-email@gmail.com')
+
+mail = Mail(app)
 
 # Add CORS headers to all responses
 @app.after_request
@@ -237,6 +248,46 @@ def health_check():
         'face_detection_available': face_detector is not None,
         'face_recognition_available': face_recognizer is not None
     })
+
+@app.route('/api/contact', methods=['POST'])
+def contact():
+    try:
+        data = request.json
+        name = data.get('name')
+        email = data.get('email')
+        message = data.get('message')
+
+        if not all([name, email, message]):
+            return jsonify({'error': 'All fields are required'}), 400
+
+        # Create email message
+        msg = Message(
+            subject=f'New Contact Form Submission from {name}',
+            recipients=[app.config['MAIL_USERNAME']],  # Send to yourself
+            body=f'''
+            Name: {name}
+            Email: {email}
+            
+            Message:
+            {message}
+            ''',
+            reply_to=email  # Set reply-to as the sender's email
+        )
+
+        # Send email
+        mail.send(msg)
+
+        return jsonify({
+            'success': True,
+            'message': 'Your message has been sent successfully!'
+        })
+
+    except Exception as e:
+        print(f"Error sending contact form: {str(e)}")
+        return jsonify({
+            'error': 'Failed to send message',
+            'details': str(e)
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=False) 

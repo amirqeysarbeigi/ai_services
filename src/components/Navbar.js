@@ -12,6 +12,10 @@ import { Link as RouterLink } from 'react-router-dom';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import { useTheme } from '../context/ThemeContext';
+import FaceIcon from '@mui/icons-material/Face';
+import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
+import InfoIcon from '@mui/icons-material/Info';
+import ContactMailIcon from '@mui/icons-material/ContactMail';
 
 function Navbar() {
   const { isDarkMode, toggleTheme } = useTheme();
@@ -48,6 +52,7 @@ function Navbar() {
             color="inherit"
             component={RouterLink}
             to="/face-detection"
+            startIcon={<FaceIcon />}
             sx={{
               '&:hover': {
                 backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -60,6 +65,7 @@ function Navbar() {
             color="inherit"
             component={RouterLink}
             to="/text-to-speech"
+            startIcon={<RecordVoiceOverIcon />}
             sx={{
               '&:hover': {
                 backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -67,6 +73,32 @@ function Navbar() {
             }}
           >
             Text to Speech
+          </Button>
+          <Button
+            color="inherit"
+            component={RouterLink}
+            to="/about"
+            startIcon={<InfoIcon />}
+            sx={{
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              },
+            }}
+          >
+            About
+          </Button>
+          <Button
+            color="inherit"
+            component={RouterLink}
+            to="/contact"
+            startIcon={<ContactMailIcon />}
+            sx={{
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              },
+            }}
+          >
+            Contact
           </Button>
           <IconButton
             color="inherit"
